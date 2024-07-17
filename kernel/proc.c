@@ -281,6 +281,9 @@ fork(void)
     return -1;
   }
 
+  // copy tracemask
+  np->tracemask = p->tracemask;//确保子进程继承父进程的 tracemask
+
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
@@ -653,4 +656,19 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+uint64
+nproc(void) 
+{
+  struct proc *p;
+  uint64 count = 0;
+  // traverse all processes
+  for(p = proc; p < &proc[NPROC]; p++) 
+  {
+    acquire(&p->lock);
+    if(p->state != UNUSED)
+        count++;
+    release(&p->lock);
+  }
+  return count;
 }
