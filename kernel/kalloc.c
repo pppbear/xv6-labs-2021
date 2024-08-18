@@ -1,4 +1,4 @@
-// Physical memory allocator, for user processes,
+﻿// Physical memory allocator, for user processes,
 // kernel stacks, page-table pages,
 // and pipe buffers. Allocates whole 4096-byte pages.
 
@@ -18,15 +18,22 @@ struct run {
   struct run *next;
 };
 
-struct {
+struct kmem {
   struct spinlock lock;
   struct run *freelist;
-} kmem;
+};
+
+struct kmem kmem_sum[NCPU];
 
 void
 kinit()
 {
-  initlock(&kmem.lock, "kmem");
+  int i;
+  //初始化所有锁
+  for (i = 0; i < NCPU; ++i)
+  {
+    initlock(&(kmem_sum[i].lock), "kmem");
+  }
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -44,11 +51,11 @@ freerange(void *pa_start, void *pa_end)
 // call to kalloc().  (The exception is when
 // initializing the allocator; see kinit above.)
 void
-kfree(void *pa)
+kfree(void* pa)
 {
-  struct run *r;
+  struct run* r;
 
-  if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
+  if (((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
   // Fill with junk to catch dangling refs.
@@ -56,10 +63,15 @@ kfree(void *pa)
 
   r = (struct run*)pa;
 
-  acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
-  release(&kmem.lock);
+  push_off();
+
+  int id = cpuid();  // 获取当前 CPU 的 ID
+  acquire(&(kmem_sum[id].lock));  // 使用当前 CPU 对应的 kmem
+  r->next = kmem_sum[id].freelist;
+  kmem_sum[id].freelist = r;
+  release(&(kmem_sum[id].lock));
+
+  pop_off();
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -68,15 +80,38 @@ kfree(void *pa)
 void *
 kalloc(void)
 {
-  struct run *r;
-
-  acquire(&kmem.lock);
-  r = kmem.freelist;
-  if(r)
-    kmem.freelist = r->next;
-  release(&kmem.lock);
-
-  if(r)
+  struct run* r;
+  push_off();
+  int id = cpuid();
+  acquire(&(kmem_sum[id].lock));
+  r = kmem_sum[id].freelist;
+  //先从自己的内存池中寻找可用的内存块
+  if (r)
+  {
+    kmem_sum[id].freelist = r->next;
+  }
+  else	//没有空闲块则从其他内存池中寻找
+  {
+    int i;
+    for (i = 0; i < NCPU; ++i)
+    {
+      if (i == id) 
+        continue;
+      //寻找前记得上锁
+      acquire(&(kmem_sum[i].lock));
+      r = kmem_sum[i].freelist;
+      if (r)
+      {
+        kmem_sum[i].freelist = r->next;
+        release(&(kmem_sum[i].lock));
+        break;
+      }
+      release(&(kmem_sum[i].lock));
+    }
+  }
+  release(&(kmem_sum[id].lock));
+  pop_off();
+  if (r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
 }
