@@ -156,8 +156,8 @@ char *syscall_names[] =
     [SYS_link]    "link",
     [SYS_mkdir]   "mkdir",
     [SYS_close]   "close",
-    [SYS_trace]   "trace",
-    [SYS_sysinfo]   "sysinfo",
+    [SYS_trace]   "trace", // lab2-1
+    [SYS_sysinfo]   "sysinfo", // lab2-2
 };
 
 void
@@ -167,8 +167,9 @@ syscall(void)
     struct proc *p = myproc();
     num = p->trapframe->a7;//读取系统调用号
     //启用追踪时，打印进程ID、系统调用名及其返回值
-    if(num > 0 && num < NELEM(syscalls) && syscalls[num]) 
+    if(num > 0 && num < NELEM(syscalls) && syscalls[num]) //判断调用号是否有效
     {
+      //执行系统调用，将返回值存储在a0寄存器中
         p->trapframe->a0 = syscalls[num]();
         if (p->tracemask & (1 << num))
         {

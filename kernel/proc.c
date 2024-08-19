@@ -280,7 +280,7 @@ fork(void)
   if((np = allocproc()) == 0){
     return -1;
   }
-
+  // lab2-1
   // copy tracemask
   np->tracemask = p->tracemask;//确保子进程继承父进程的 tracemask
 
@@ -657,6 +657,7 @@ procdump(void)
     printf("\n");
   }
 }
+// lab2-2
 uint64
 nproc(void) 
 {

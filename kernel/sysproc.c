@@ -96,7 +96,7 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
-
+// lab2-1
 uint64
 sys_trace(void)
 {
@@ -108,7 +108,7 @@ sys_trace(void)
     p->tracemask = mask;
     return 0;
 }
-
+// lab2-2
 uint64
 sys_sysinfo(void)
 {
@@ -118,7 +118,7 @@ sys_sysinfo(void)
     //获取系统调用的sysinfo参数地址
     if(argaddr(0, &addr) < 0)
         return -1;
-
+    //填写info信息
     info.freemem = freemem();
     info.nproc = nproc();
     //将 sysinfo 结构体的数据从内核空间复制到用户空间
