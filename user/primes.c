@@ -19,7 +19,7 @@ filter(int p[2]) {
 
   if (fork() == 0) 
   {
-    //子进程：递归调用 filter 处理新的管道
+    //子进程：递归调用filter筛选下一个数字
     close(new_p[1]); // 关闭新管道的写端
     filter(new_p);
   }
