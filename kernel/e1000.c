@@ -103,26 +103,29 @@ e1000_transmit(struct mbuf *m)
   // a pointer so that it can be freed after sending.
   //
   acquire(&e1000_lock);
-
   uint32 idx = regs[E1000_TDT];
-
-  /* tx_ring 还未完成之前写的工作 */
+  // 检查当前索引的描述符是否已被 E1000 处理完毕
   if ((tx_ring[idx].status & E1000_TXD_STAT_DD) == 0) {
+    // 如果描述符尚未被处理，环形队列满了，无法继续传输
     release(&e1000_lock);
     return -1;
   }
-
-  /* 将之前挂载在 tx_mbufs 中的 mbuf 释放掉，即归还给 memory */
+  // 如果 tx_mbufs 中已存在先前的 mbuf，则释放它以避免内存泄漏
   if (tx_mbufs[idx])
     mbuffree(tx_mbufs[idx]);
-
-  /* 将 in-memory 的 m 挂载到 tx_ring，此 m 包含了我们需要传输的数据  */
   tx_mbufs[idx] = m;
-  tx_ring[idx].length = m->len;   /* 为 m 填写一些 metadata*/
+  tx_ring[idx].length = m->len;
+
+  // 将 mbuf 的数据起始地址保存到描述符的地址字段
+  // 这里使用的是物理地址，便于 E1000 通过 DMA 读取数据
   tx_ring[idx].addr = (uint64)m->head;
+
+  // E1000_TXD_CMD_EOP: 表示这是数据包的结束
+  // E1000_TXD_CMD_RS: 请求 E1000 在传输完成后将 E1000_TXD_STAT_DD 设置为 1
   tx_ring[idx].cmd = E1000_TXD_CMD_RS | E1000_TXD_CMD_EOP;
 
-  regs[E1000_TDT] = (idx + 1) % TX_RING_SIZE;   /* 环形队列指向下一个空位，为下一次的传输操作作准备 */
+  // 更新TDT寄存器，通知 E1000 有新的数据包需要发送
+  regs[E1000_TDT] = (idx + 1) % TX_RING_SIZE;
   release(&e1000_lock);
   return 0;
 }
@@ -137,23 +140,20 @@ e1000_recv(void)
   // Create and deliver an mbuf for each packet (using net_rx()).
   //
   while (1) {
-    uint32 idx = (regs[E1000_RDT] + 1) % RX_RING_SIZE;  /* 为刚接收的 packet 腾出空间 */
-
-    /* 当前没有需要读取的 packet */
+    uint32 idx = (regs[E1000_RDT] + 1) % RX_RING_SIZE;
+    // 检查当前描述符的状态是否表明有新数据可读
     if ((rx_ring[idx].status & E1000_RXD_STAT_DD) == 0)
-      return;
-
-    /* 将暂存在 rx_mbufs 中的 packet 向上传递至 application */
+      return;  
+    // 将已接收到的 packet 从 rx_mbufs 数组中提取出来
     rx_mbufs[idx]->len = rx_ring[idx].length;
+    // 使用 net_rx() 函数处理接收到的数据包
     net_rx(rx_mbufs[idx]);
-
-    /* 刷新 rx_ring ，为接收下一批 packets 作准备 */
+    // 为下一次接收分配新的 mbuf，并检查是否分配成功
     if ((rx_mbufs[idx] = mbufalloc(0)) == 0)
-      panic("e1000 _recv");
-
+      panic("e1000_recv: mbufalloc failed");
+    // 将新分配的 mbuf 的头地址填充到接收描述符中，供 E1000 使用 DMA 进行数据存储
     rx_ring[idx].addr = (uint64)rx_mbufs[idx]->head;
     rx_ring[idx].status = 0;
-
     regs[E1000_RDT] = idx;
   }
 }
