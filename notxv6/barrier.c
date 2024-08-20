@@ -31,14 +31,22 @@ barrier()
   // then increment bstate.round.
   //
   pthread_mutex_lock(&bstate.barrier_mutex);
-  // judge whether all threads reach the barrier
-  if (++bstate.nthread != nthread) {    // not all threads reach    
-    pthread_cond_wait(&bstate.barrier_cond, &bstate.barrier_mutex);  // wait other threads
+  // 增加到达屏障的线程计数
+  bstate.nthread++;
+
+  // 检查是否所有线程都到达了屏障
+  if (bstate.nthread != nthread) {
+    // 如果不是所有线程都到达，当前线程将等待条件变量
+    // 释放互斥量，并等待其他线程到达屏障
+    pthread_cond_wait(&bstate.barrier_cond, &bstate.barrier_mutex);
   }
-  else {  // all threads reach
-    bstate.nthread = 0; // reset nthread
-    ++bstate.round; // increase round
-    pthread_cond_broadcast(&bstate.barrier_cond);   // wake up all sleeping threads
+  else {
+    // 如果所有线程都到达屏障
+    // 重置计数器
+    bstate.nthread = 0;
+    bstate.round++;
+    // 唤醒所有在条件变量上等待的线程
+    pthread_cond_broadcast(&bstate.barrier_cond);
   }
   pthread_mutex_unlock(&bstate.barrier_mutex);
 }

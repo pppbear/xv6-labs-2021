@@ -34,7 +34,7 @@ extern void thread_switch(struct context* old, struct context* new);
 struct thread {
   char       stack[STACK_SIZE]; /* the thread's stack */
   int        state;             /* FREE, RUNNING, RUNNABLE */
-  struct context context;       // register context
+  struct context context;       // lab6-1
 }; 
 
 struct thread all_thread[MAX_THREAD];

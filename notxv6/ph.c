@@ -17,7 +17,7 @@ struct entry *table[NBUCKET];
 int keys[NKEYS];
 int nthread = 1;
 
-pthread_mutex_t locks[NBUCKET];
+pthread_mutex_t locks[NBUCKET]; //lab6-2，声明锁
 
 double
 now()
@@ -37,27 +37,27 @@ insert(int key, int value, struct entry **p, struct entry *n)
   *p = e;
 }
 
-static
-void put(int key, int value)
-{
+static 
+void put(int key, int value) {
   int i = key % NBUCKET;
 
-  // is the key already present?
+  // 查找键是否已经存在
   struct entry* e = 0;
+  pthread_mutex_lock(&locks[i]);  // 锁定当前哈希桶，确保线程安全
   for (e = table[i]; e != 0; e = e->next) {
-    if (e->key == key)
+    if (e->key == key)  // 如果键已经存在，跳出循环
       break;
   }
+
   if (e) {
-    // update the existing key.
+    // 更新已存在的键的值
     e->value = value;
   }
   else {
-    pthread_mutex_lock(&locks[i]);   
-    // the new is new.
+    // 如果键不存在，插入新键值对
     insert(key, value, &table[i], table[i]);
-    pthread_mutex_unlock(&locks[i]);  
   }
+  pthread_mutex_unlock(&locks[i]);  // 解锁当前哈希桶
 }
 
 static struct entry*
@@ -119,7 +119,7 @@ main(int argc, char *argv[])
   for (int i = 0; i < NKEYS; i++) {
     keys[i] = random();
   }
-  // initialize locks
+  // 初始化锁
   for (int i = 0; i < NBUCKET; ++i) {
     pthread_mutex_init(&locks[i], NULL);
   }
