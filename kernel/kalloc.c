@@ -50,6 +50,7 @@ freerange(void* pa_start, void* pa_end)
   p = (char*)PGROUNDUP((uint64)pa_start);
   for (; p + PGSIZE <= (char*)pa_end; p += PGSIZE) {
     acquire(&kmem.lock);
+    // 设置物理页面的引用计数为1，表示该页面已经被分配一次
     kmem.ref_count[((uint64)p - KERNBASE) / PGSIZE] = 1;
     release(&kmem.lock);
     kfree(p);
@@ -67,14 +68,11 @@ kfree(void* pa)
   if (((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
-  // kfree() should only place a page back on the free list
-  // if its reference count is zero.
-  // decrement a page's count each time any process drops the page from its page table.
-  // NOTE: if drops the page, we must call kfree() finally
   acquire(&kmem.lock);
+  // 如果引用计数为0，则释放该页面
   if (--kmem.ref_count[((uint64)pa - KERNBASE) / PGSIZE] == 0) {
     release(&kmem.lock);
-    // Fill with junk to catch dangling refs.
+    // 用特定值填充整个页面内存
     memset(pa, 1, PGSIZE);
 
     r = (struct run*)pa;
@@ -98,8 +96,9 @@ kalloc(void)
   acquire(&kmem.lock);
   r = kmem.freelist;
   if (r) {
-    // Set a page's reference count to one when kalloc() allocates it.  
+    // 当从空闲列表中分配一个页面时，设置该页面的引用计数为1  
     kmem.ref_count[((uint64)r - KERNBASE) / PGSIZE] = 1;
+    // 将空闲列表指针移动到下一个空闲页面
     kmem.freelist = r->next;
   }
   release(&kmem.lock);

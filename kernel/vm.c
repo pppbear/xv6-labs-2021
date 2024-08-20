@@ -311,14 +311,14 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
 
-    // Increment a page's reference count when fork causes a child to share the page, 
+    // 增加该页面的引用计数，因为子进程将与父进程共享页面
     increment_refcount(PGROUNDDOWN(pa));
 
-    /* just clear PTE_W for page with PTE_W */
+    // 如果页表项具有写权限（PTE_W）
     if (*pte & PTE_W) {
-      /* clear PTE_W */
+      // 清除 PTE_W 标志位，防止直接写入
       *pte &= (~PTE_W);
-      /* set PTE_COW */
+      // 设置 PTE_COW 标志位，表示这是一个 COW 页面
       *pte |= PTE_COW;
     }
 
@@ -364,8 +364,7 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
       n = len;
 
     if (is_cowpage(pagetable, va0) == 0)
-      // if it is a cowpage, we need a new pa0 pointer to a new memory
-      // and if it is a null pointer, we need return error of -1
+      // 如果这是一个 COW 页面，则我们需要新的物理地址 (pa0) 指向新的内存
       if ((pa0 = (uint64)cow_alloc(pagetable, va0)) == 0)
         return -1;
 

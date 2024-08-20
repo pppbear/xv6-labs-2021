@@ -68,8 +68,9 @@ usertrap(void)
     syscall();
   }
   else if (r_scause() == 15) {
-    // This is "store page fault", because I want write a page without PTE_W  
+    // 如果异常原因码为 15，表示这是一次 "store page fault"
     uint64 fault_va = r_stval();
+    // 如果该页面是 COW 页面，则调用cow_alloc为进程分配新页面并复制内容。
     if (fault_va > p->sz ||
       is_cowpage(p->pagetable, fault_va) < 0 ||
       cow_alloc(p->pagetable, PGROUNDDOWN(fault_va)) == 0
@@ -101,52 +102,33 @@ is_cowpage(pagetable_t pagetable, uint64 va)
   return (*pte & PTE_COW ? 0 : -1);
 }
 
-/* allocte a phycial memory page for a cow page */
-/* if OK return memory pointer of void*; else return 0 */
 void*
 cow_alloc(pagetable_t pagetable, uint64 va)
 {
+  // 获取虚拟地址 va 对应的页表条目 (PTE)
   pte_t* pte = walk(pagetable, va, 0);
   uint64 pa = PTE2PA(*pte);
-
-  // refcount == 1, only a process use the cowpage
-  // so we set the PTE_W of cowpage and clear PTE_COW of the cowpage
+  // 如果只有一个进程在使用该 COW 页面，恢复写权限并移除 COW 标志
   if (get_refcount(pa) == 1) {
-    *pte |= PTE_W;
-    *pte &= ~PTE_COW;
+    *pte = (*pte | PTE_W) & ~PTE_COW;  // 直接在一行内设置和清除标志
     return (void*)pa;
   }
-
-  // refcount >= 2, some processes use the cowpage
-  uint flags;
-  char* new_mem;
-  /* sets PTE_W */
-  *pte |= PTE_W;
-  flags = PTE_FLAGS(*pte);
-
-  /* alloc and copy, then map */
-  pa = PTE2PA(*pte);
-  new_mem = kalloc();
-
-  // If a COW page fault occurs and there's no free memory, the process should be killed.
-  if (new_mem == 0)
-    return 0;
-
+  // 否则，多个进程共享该页面，需要分配新的页面
+  char* new_mem = kalloc();
+  if (new_mem == 0) return 0;  // 如果分配失败，返回 0
+  // 复制旧页面内容到新页面
   memmove(new_mem, (char*)pa, PGSIZE);
-  /* clear PTE_V before map the page to avoid panic of 'remap'  */
+  // 清除旧 PTE 的 PTE_V 标志，避免重映射时出错
   *pte &= ~PTE_V;
-  /* note: new_mem is new address of phycial memory*/
-  if (mappages(pagetable, va, PGSIZE, (uint64)new_mem, flags) != 0) {
-    /* set PTE_V, then kfree new_men, if map failed*/
-    *pte |= PTE_V;
-    kfree(new_mem);
+  // 使用新的物理页面重新映射虚拟地址
+  if (mappages(pagetable, va, PGSIZE, (uint64)new_mem, PTE_FLAGS(*pte) | PTE_W) != 0) {
+    *pte |= PTE_V;  // 恢复旧页面的 PTE_V 标志
+    kfree(new_mem);  // 如果映射失败，释放新页面
     return 0;
   }
-
-  /* decrement a ref_count */
+  // 释放旧页面的物理内存
   kfree((char*)PGROUNDDOWN(pa));
-
-  return new_mem;
+  return new_mem;  // 返回新分配页面的地址
 }
 
 //
