@@ -105,8 +105,9 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-  int interval;
-  uint64 handler;
-  int passedticks;
-  struct trapframe* trapframecopy;
+  // lab4-3
+  int interval;               //警报的时间间隔
+  uint64 handler;             //警报处理函数的地址
+  int passedticks;            //自上次触发警报以来已经经过的时钟滴答数。
+  struct trapframe* trapframecopy;//保存用户进程在触发警报处理函数前的CPU寄存器状态
 };

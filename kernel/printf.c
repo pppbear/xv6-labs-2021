@@ -134,7 +134,7 @@ panic(char *s)
   printf("panic: ");
   printf(s);
   printf("\n");
-  backtrace();
+  backtrace(); // lab4-2
   panicked = 1; // freeze uart output from other CPUs
   for(;;)
     ;

@@ -75,14 +75,15 @@ usertrap(void)
 
   if(p->killed)
     exit(-1);
-
-  if (which_dev == 2) {   // timer interrupt
-    // increase the passed ticks
+  // lab4-3
+  if (which_dev == 2) {  // 如果是时钟中断
+    // 增加 passedticks 计数
     if (p->interval != 0 && ++p->passedticks == p->interval) {
+      // 当 passedticks 达到设定的 interval 时触发处理函数
       // 使用 trapframe 后的一部分内存,此处512只是为了取整数幂
       p->trapframecopy = p->trapframe + 512;
       memmove(p->trapframecopy, p->trapframe, sizeof(struct trapframe));    // copy trapframe
-      p->trapframe->epc = p->handler;   // execute handler() when return to user space
+      p->trapframe->epc = p->handler;   // 返回到用户空间时执行用户定义的处理函数
     }
   }
 

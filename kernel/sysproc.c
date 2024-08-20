@@ -73,7 +73,7 @@ sys_sleep(void)
     sleep(&ticks, &tickslock);
   }
   release(&tickslock);
-  backtrace();
+  backtrace(); // lab4-2
   return 0;
 }
 
@@ -157,14 +157,14 @@ sys_uptime(void)
 uint64 
 sys_sigreturn(void) {
   struct proc* p = myproc();
-  // trapframecopy must have the copy of trapframe
+  // 检查trapframecopy是否指向正确的内存位置，以确保保存的寄存器状态有效
   if (p->trapframecopy != p->trapframe + 512) {
     return -1;
   }
   memmove(p->trapframe, p->trapframecopy, sizeof(struct trapframe));   // restore the trapframe
   p->passedticks = 0;     // prevent re-entrant
   p->trapframecopy = 0;    // 置零
-  return p->trapframe->a0;	// 返回a0,避免被返回值覆盖
+  return p->trapframe->a0;	// 返回a0
 }
 
 uint64 
