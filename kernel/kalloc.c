@@ -97,7 +97,7 @@ kalloc(void)
     {
       if (i == id) 
         continue;
-      //寻找前记得上锁
+      
       acquire(&(kmem_sum[i].lock));
       r = kmem_sum[i].freelist;
       if (r)

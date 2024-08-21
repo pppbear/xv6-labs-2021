@@ -37,6 +37,7 @@ struct {
   // Sorted by how recently the buffer was used.
   // head.next is most recent, head.prev is least.
 } bcache;
+
 void
 binit(void)
 {
@@ -45,7 +46,7 @@ binit(void)
 
   bcache.size = 0; 
   initlock(&bcache.lock, "bcache");
-  initlock(&bcache.hashlock, "bcache_hash");    // init hash lock 
+  initlock(&bcache.hashlock, "bcache_hash");    
   for (i = 0; i < NBUCKETS; ++i) {
     initlock(&bcache.locks[i], "bcache_bucket");
   }
@@ -66,19 +67,19 @@ bget(uint dev, uint blockno)
   uint mintimestamp;
   int i;
 
-  // loop up the buf in the buckets[idx]
-  acquire(&bcache.locks[idx]); 
+  // 查找块缓冲区
+  acquire(&bcache.locks[idx]);  // lab8-2
   for (b = bcache.buckets[idx].next; b; b = b->next) {
     if (b->dev == dev && b->blockno == blockno) {
       b->refcnt++;
-      release(&bcache.locks[idx]);  
+      release(&bcache.locks[idx]);  // lab8-2 
       acquiresleep(&b->lock);
       return b;
     }
   }
 
   // Not cached.
-  // check if there is a buf not used 
+  // 检查是否有未使用的缓冲区 lab8-2 
   acquire(&bcache.lock);
   if (bcache.size < NBUF) {
     b = &bcache.buf[bcache.size++];
@@ -96,8 +97,8 @@ bget(uint dev, uint blockno)
   release(&bcache.lock);
   release(&bcache.locks[idx]);
 
-  // select the last-recently used block int the bucket
-  //based on the timestamp 
+  // 选择最近最少使用的缓冲区
+  // 模仿LRU算法
   acquire(&bcache.hashlock);
   for (i = 0; i < NBUCKETS; ++i) {
     mintimestamp = -1;
@@ -180,21 +181,19 @@ brelse(struct buf* b)
 
   releasesleep(&b->lock);
 
-  // change the lock 
-  idx = HASH(b->blockno);
+  idx = HASH(b->blockno);// 计算哈希值
+  // 在释放缓冲区锁之前先获取哈希桶锁
   acquire(&bcache.locks[idx]);
+  // 修改引用计数和时间戳
   b->refcnt--;
   if (b->refcnt == 0) {
-    // no one is waiting for it.
     b->timestamp = ticks;
   }
 
   release(&bcache.locks[idx]);
 }
-
 void
 bpin(struct buf* b) {
-  // change the lock
   int idx = HASH(b->blockno);
   acquire(&bcache.locks[idx]);
   b->refcnt++;
@@ -203,7 +202,6 @@ bpin(struct buf* b) {
 
 void
 bunpin(struct buf* b) {
-  // change the lock 
   int idx = HASH(b->blockno);
   acquire(&bcache.locks[idx]);
   b->refcnt--;
