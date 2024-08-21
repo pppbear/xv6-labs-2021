@@ -537,26 +537,26 @@ uint64 sys_symlink(void) {
   char target[MAXPATH], path[MAXPATH];
   struct inode* ip;
   int n;
-
+  // 从用户空间获取目标路径和符号链接路径
   if ((n = argstr(0, target, MAXPATH)) < 0
     || argstr(1, path, MAXPATH) < 0) {
     return -1;
   }
 
   begin_op();
-  // create the symlink's inode
+  // 创建符号链接的 inode，类型为 T_SYMLINK
   if ((ip = create(path, T_SYMLINK, 0, 0)) == 0) {
     end_op();
     return -1;
   }
-  // write the target path to the inode
+  // 将目标路径写入符号链接的 inode 数据块中
   if (writei(ip, 0, (uint64)target, 0, n) != n) {
     iunlockput(ip);
     end_op();
     return -1;
   }
 
-  iunlockput(ip);
+  iunlockput(ip);// 解锁并释放 inode
   end_op();
   return 0;
 }

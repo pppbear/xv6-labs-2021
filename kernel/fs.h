@@ -24,10 +24,11 @@ struct superblock {
 
 #define FSMAGIC 0x10203040
 #define NSYMLINK 10
-#define NDIRECT 11  
+#define NDIRECT 11  // lab9-1 
 #define NINDIRECT (BSIZE / sizeof(uint))
 #define MAXFILE (NDIRECT + NINDIRECT + NDOUBLYINDIRECT) 
-#define NDOUBLYINDIRECT (NINDIRECT * NINDIRECT)
+
+#define NDOUBLYINDIRECT (NINDIRECT * NINDIRECT)//lab9-1
 // On-disk inode structure
 struct dinode {
   short type;           // File type

@@ -400,26 +400,27 @@ bmap(struct inode* ip, uint bn)
     brelse(bp);
     return addr;
   }
-
-  // doubly-indirect block 
+  // lab9-1
+  // 双重间接块 
   bn -= NINDIRECT;
   if (bn < NDOUBLYINDIRECT) {
-    // get the address of doubly-indirect block
-    if ((addr = ip->addrs[NDIRECT + 1]) == 0) {
+    // 检查双重间接块是否已分配。如果未分配，则分配新块。
+      if ((addr = ip->addrs[NDIRECT + 1]) == 0) {
       ip->addrs[NDIRECT + 1] = addr = balloc(ip->dev);
     }
+    // 加载双重间接块到内存
     bp = bread(ip->dev, addr);
     a = (uint*)bp->data;
-    // get the address of singly-indirect block
+    // 计算单重间接块的索引并检查是否已分配。
     if ((addr = a[bn / NINDIRECT]) == 0) {
       a[bn / NINDIRECT] = addr = balloc(ip->dev);
       log_write(bp);
     }
-    brelse(bp);
+    brelse(bp);// 释放双重间接块的缓冲区。
     bp = bread(ip->dev, addr);
     a = (uint*)bp->data;
     bn %= NINDIRECT;
-    // get the address of direct block
+    // 检查特定的直接块是否已分配。如果未分配，则分配新块。
     if ((addr = a[bn]) == 0) {
       a[bn] = addr = balloc(ip->dev);
       log_write(bp);
@@ -458,14 +459,17 @@ itrunc(struct inode* ip)
     bfree(ip->dev, ip->addrs[NDIRECT]);
     ip->addrs[NDIRECT] = 0;
   }
-  // free the doubly-indirect block
+  // lab9-1
+  // 释放双重间接块
   if (ip->addrs[NDIRECT + 1]) {
     bp = bread(ip->dev, ip->addrs[NDIRECT + 1]);
     a = (uint*)bp->data;
+    // 遍历双重间接块中的每个单重间接块
     for (j = 0; j < NINDIRECT; ++j) {
       if (a[j]) {
         bp2 = bread(ip->dev, a[j]);
         a2 = (uint*)bp2->data;
+        // 遍历单重间接块中的每个直接块
         for (k = 0; k < NINDIRECT; ++k) {
           if (a2[k]) {
             bfree(ip->dev, a2[k]);
