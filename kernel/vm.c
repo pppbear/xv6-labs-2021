@@ -174,6 +174,7 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
   for(a = va; a < va + npages*PGSIZE; a += PGSIZE){
     if((pte = walk(pagetable, a, 0)) == 0)
       panic("uvmunmap: walk");
+    // 可能并未实际分配
     if((*pte & PTE_V) == 0)
       continue;   // lab10
     if(PTE_FLAGS(*pte) == PTE_V)
@@ -432,7 +433,7 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
-// get the dirty flag of the va's PTE - lab10
+// 获取虚拟地址 PTE 的脏标志
 int uvmgetdirty(pagetable_t pagetable, uint64 va) {
   pte_t* pte = walk(pagetable, va, 0);
   if (pte == 0) {
@@ -441,7 +442,7 @@ int uvmgetdirty(pagetable_t pagetable, uint64 va) {
   return (*pte & PTE_D);
 }
 
-// set the dirty flag and write flag of the va's PTE - lab10
+// 设置虚拟地址 PTE 的脏标志和写标志
 int uvmsetdirtywrite(pagetable_t pagetable, uint64 va) {
   pte_t* pte = walk(pagetable, va, 0);
   if (pte == 0) {

@@ -70,56 +70,51 @@ usertrap(void)
 
     syscall();
   }
-  else if (r_scause() == 12 || r_scause() == 13
-    || r_scause() == 15) { // mmap page fault - lab10
+  else if (r_scause() == 12 || r_scause() == 13 || r_scause() == 15) { 
+    // mmap 页错误 - 实验10
     char* pa;
+    // 获取导致页错误的虚拟地址
     uint64 va = PGROUNDDOWN(r_stval());
-    struct vm_area* vma = 0;
+    struct VMA* vma = 0;
     int flags = PTE_U;
     int i;
-    // find the VMA
     for (i = 0; i < NVMA; ++i) {
-      // like the Linux mmap, it can modify the remaining bytes in
-      //the end of mapped page
-      if (p->vma[i].addr && va >= p->vma[i].addr
-        && va < p->vma[i].addr + p->vma[i].len) {
-        vma = &p->vma[i];
+      if (p->vma[i].addr && va >= p->vma[i].addr && va < p->vma[i].addr + p->vma[i].len) {
+        vma = &p->vma[i]; // 找到匹配的 VMA
         break;
       }
     }
-    if (!vma) {
+    if (!vma) 
       goto err;
-    }
-    // set write flag and dirty flag to the mapped page's PTE
-    if (r_scause() == 15 && (vma->prot & PROT_WRITE)
-      && walkaddr(p->pagetable, va)) {
+    // 如果页错误是写引发的，并且 VMA 有写权限，则设置页表的脏页标志
+    if (r_scause() == 15 && (vma->prot & PROT_WRITE) && walkaddr(p->pagetable, va)) {
       if (uvmsetdirtywrite(p->pagetable, va)) {
         goto err;
       }
     }
     else {
-      if ((pa = kalloc()) == 0) {
+      // 懒加载页面: 如果该地址未被映射，分配物理内存并将数据从文件中加载到页面中
+      pa = kalloc(); 
+      if (!pa) {
         goto err;
       }
-      memset(pa, 0, PGSIZE);
+      memset(pa, 0, PGSIZE);// 初始化物理页
       ilock(vma->f->ip);
+      // 从文件中读取一页内容到分配的物理页中
       if (readi(vma->f->ip, 0, (uint64)pa, va - vma->addr + vma->offset, PGSIZE) < 0) {
         iunlock(vma->f->ip);
         goto err;
       }
       iunlock(vma->f->ip);
-      if ((vma->prot & PROT_READ)) {
+      if ((vma->prot & PROT_READ)) 
         flags |= PTE_R;
-      }
-      // only store page fault and the mapped page can be written
-      //set the PTE write flag and dirty flag otherwise don't set
-      //these two flag until next store page falut
-      if (r_scause() == 15 && (vma->prot & PROT_WRITE)) {
+      // 如果发生的是写入错误，并且 VMA 具有写权限，则设置页表的写标志和脏页标志
+      if (r_scause() == 15 && (vma->prot & PROT_WRITE))
         flags |= PTE_W | PTE_D;
-      }
-      if ((vma->prot & PROT_EXEC)) {
+      // 如果 VMA 有执行权限，则设置页表的执行标志
+      if ((vma->prot & PROT_EXEC)) 
         flags |= PTE_X;
-      }
+      // 将分配的物理页映射到虚拟地址空间
       if (mappages(p->pagetable, va, PGSIZE, (uint64)pa, flags) != 0) {
         kfree(pa);
         goto err;

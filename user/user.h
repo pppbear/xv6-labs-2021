@@ -23,6 +23,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+// lab10
 void* mmap(void* addr, int length, int prot, int flags, int fd, int offset);
 int munmap(void* add, int length);
 // ulib.c

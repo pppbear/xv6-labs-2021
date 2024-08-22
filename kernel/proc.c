@@ -304,7 +304,7 @@ fork(void)
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
 
-  // copy all of VMA - lab10
+  // 复制所有 VMA
   for (i = 0; i < NVMA; ++i) {
     if (p->vma[i].addr) {
       np->vma[i] = p->vma[i];
@@ -358,7 +358,7 @@ exit(int status)
   struct proc* p = myproc();
   // lab10
   int i;
-  struct vm_area* vma;
+  struct VMA* vma;
   uint maxsz = ((MAXOPBLOCKS - 1 - 1 - 2) / 2) * BSIZE;
   uint64 va;
   uint n, n1, r;
@@ -366,7 +366,7 @@ exit(int status)
   if (p == initproc)
     panic("init exiting");
 
-  // unmap the mapped memory - lab10
+  // 解除映射的内存区域
   for (i = 0; i < NVMA; ++i) {
     if (p->vma[i].addr == 0) {
       continue;
@@ -382,6 +382,7 @@ exit(int status)
           n1 = min(maxsz, n - i);
           begin_op();
           ilock(vma->f->ip);
+          // 将脏页面写回到文件
           if (writei(vma->f->ip, 1, va + i, va - vma->addr + vma->offset + i, n1) != n1) {
             iunlock(vma->f->ip);
             end_op();
@@ -392,7 +393,8 @@ exit(int status)
         }
       }
     }
-    uvmunmap(p->pagetable, vma->addr, (vma->len - 1) / PGSIZE + 1, 1);
+    uvmunmap(p->pagetable, vma->addr, (vma->len - 1) / PGSIZE + 1, 1);// 解除映射
+    // 清理 VMA 信息
     vma->addr = 0;
     vma->len = 0;
     vma->offset = 0;
